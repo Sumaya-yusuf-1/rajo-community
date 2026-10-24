@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {currentUser} from '@/lib/supabase/server';
+export async function GET(){try{const {supabase}=await currentUser();const {data,error}=await supabase.from('moments').select('id,title_sv,title_so,description_sv,description_so,image_url,event_date,location').order('event_date',{ascending:false});if(error)throw error;return NextResponse.json({data})}catch{return NextResponse.json({error:'Database unavailable'},{status:503})}}
