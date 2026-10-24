@@ -1,8 +1,0 @@
-{
-  "/api/admin/[table]/route": "app/api/admin/[table]/route.js",
-  "/[locale]/join/page": "app/[locale]/join/page.js",
-  "/[locale]/admin/page": "app/[locale]/admin/page.js",
-  "/[locale]/login/page": "app/[locale]/login/page.js",
-  "/[locale]/member/page": "app/[locale]/member/page.js",
-  "/[locale]/activities/page": "app/[locale]/activities/page.js"
-}
