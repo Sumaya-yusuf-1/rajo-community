@@ -51,6 +51,7 @@ export function IdeasPageContent({ t, ideas, myVotes, notice, vote, addIdea }: P
                 idea={i}
                 voted={myVotes.includes(i.id)}
                 votedLabel={t("Voted", "Waad codaysay")}
+                undoVoteLabel={t("Undo vote", "Ka noqo codka")}
                 voteLabel={t("Vote for this idea", "U codee fikraddan")}
                 onVote={() => vote(i.id)}
               />

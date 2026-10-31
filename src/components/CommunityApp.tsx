@@ -182,10 +182,12 @@ export function CommunityApp({
 
         const result = (await response.json()) as {
           data?: DatabaseIdea[];
+          votedIds?: string[];
         };
 
         if (!active) return;
 
+        setMyVotes(result.votedIds ?? []);
         setIdeas(
           (result.data ?? []).map((idea) => ({
             id: idea.id,
@@ -395,19 +397,21 @@ export function CommunityApp({
 
   // VOTE
   async function vote(id: string) {
-    if (myVotes.includes(id)) return;
+    const undo = myVotes.includes(id);
 
     try {
       const response = await fetch(
         `/api/ideas/${encodeURIComponent(id)}/vote`,
-        { method: "POST" },
+        { method: undo ? "DELETE" : "POST" },
       );
 
       if (!response.ok) {
         throw new Error("Unable to vote");
       }
 
-      const updatedVotes = [...myVotes, id];
+      const updatedVotes = undo
+        ? myVotes.filter((voteId) => voteId !== id)
+        : [...myVotes, id];
 
       setMyVotes(updatedVotes);
 
@@ -419,7 +423,10 @@ export function CommunityApp({
       setIdeas((current) =>
         current.map((idea) =>
           idea.id === id
-            ? { ...idea, votes: idea.votes + 1 }
+            ? {
+                ...idea,
+                votes: Math.max(0, idea.votes + (undo ? -1 : 1)),
+              }
             : idea,
         ),
       );

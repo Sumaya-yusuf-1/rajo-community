@@ -53,6 +53,7 @@ export const swedish: Record<string,string> = {
   "Popular ideas": "Populära idéer",
   "Vote for this idea": "Rösta på idén",
   "Voted": "Röstat",
+  "Undo vote": "Ångra röst",
   "Submit idea": "Skicka idé",
   "Share what you would love to do together and vote for ideas that inspire you.": "Berätta vad du vill hitta på tillsammans och rösta på förslag som inspirerar dig.",
   "Vote for your favourite suggestions. One vote per idea in this browser demo.": "Rösta på dina favoritförslag. En röst per idé i den här prototypen.",

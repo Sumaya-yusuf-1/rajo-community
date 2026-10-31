@@ -5,12 +5,14 @@ export function IdeaCard({
   idea,
   voted,
   votedLabel,
+  undoVoteLabel,
   voteLabel,
   onVote,
 }: {
   idea: Idea;
   voted: boolean;
   votedLabel: string;
+  undoVoteLabel: string;
   voteLabel: string;
   onVote: () => void;
 }) {
@@ -26,11 +28,10 @@ export function IdeaCard({
       <p>{idea.description}</p>
       <button
         className={voted ? "vote-btn voted" : "vote-btn"}
-        disabled={voted}
         onClick={onVote}
       >
         <Heart size={16} />
-        {voted ? votedLabel : voteLabel}
+        {voted ? `${votedLabel} · ${undoVoteLabel}` : voteLabel}
       </button>
     </div>
   );
