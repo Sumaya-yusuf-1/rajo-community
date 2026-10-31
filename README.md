@@ -10,6 +10,38 @@ cp .env.example .env.local
 npm run dev
 ```
 
+### End-to-end tests
+
+Cypress tests use intercepted API and Supabase REST responses for writes, so the
+default suite does not create, update, delete, or vote against a real Supabase
+project.
+
+Start the app in one terminal and run Cypress in another:
+
+```bash
+npm run dev
+npm run test:e2e
+```
+
+Use the interactive runner with:
+
+```bash
+npm run test:e2e:open
+```
+
+To run against another local or test server:
+
+```bash
+CYPRESS_BASE_URL=http://localhost:3001 npm run test:e2e
+```
+
+Authenticated admin/member scenarios should use a separate Supabase test
+project, never production credentials. Configure that project's URL and
+publishable key in a test-only `.env.local`, create dedicated test users, and
+grant the test admin role only in that project. Keep any authenticated Cypress
+session setup in a local-only support file or CI secret store; do not commit
+access tokens, service-role keys, or production user credentials.
+
 1. Skapa ett Supabase-projekt på supabase.com.
 2. Hämta **Project URL** och **anon/publishable key** och fyll i `.env.local`. Lägg **aldrig** en service-role/secret-key i NEXT_PUBLIC-variabler.
 3. Öppna Supabase → SQL Editor och kör `supabase/schema.sql` **en gång i ett nytt projekt** (skriptet är inte en komplett upprepningsbar migration).

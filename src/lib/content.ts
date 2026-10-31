@@ -16,17 +16,26 @@ export const events = [
  {id:2,title:'RAJO Sisters – fika & gemenskap',so:'Kulanka Qaxwada Gabdhaha',date:'5 Nov 2026',where:'Gothenburg',type:'RAJO Sisters',image:photos.coffee,description:'En avslappnad träff för gemenskap och idéer.',descriptionSo:'Goob degan oo la isku barto laguna wadaago fikrado.'},
  {id:3,title:'Idékväll med RAJO',so:'Wadaagista Fikradaha Bulshada',date:'12 Nov 2026',where:'Online',type:'Workshop',image:photos.learn,description:'Var med och påverka vad vi gör tillsammans härnäst.',descriptionSo:'Naga caawi qorshaynta hawlaha xiga.'}
 ];
-export const moments = [
- {id:1,title:'Gemenskapsträff',so:'Kulankii Bulshada',date:'Aug 2026',location:'Gothenburg',category:'Meetups',image:photos.friends},
- {id:2,title:'En eftermiddag tillsammans',so:'Galab Wadajir Ah',date:'Jul 2026',location:'Gothenburg',category:'Meetups',image:photos.picnic},
- {id:3,title:'Vänner & samtal',so:'Saaxiibbo iyo Wadahadal',date:'Jun 2026',location:'Online & local',category:'Community',image:photos.girls},
- {id:4,title:'Spel och gemenskap',so:'Ciyaaro iyo Farxad',date:'May 2026',location:'Online',category:'Activities',image:photos.games},
- {id:5,title:'Fika och gemenskap',so:'Qaxwo iyo Isbarasho',date:'Apr 2026',location:'Gothenburg',category:'RAJO Sisters',image:photos.coffee},
- {id:6,title:'Vi lär tillsammans',so:'Waxbarasho Wadajir Ah',date:'Mar 2026',location:'Online',category:'Workshops',image:photos.learn}
+export type Moment = {
+ id: string;
+ title: string;
+ so: string;
+ date: string;
+ location: string;
+ category?: string;
+ image: string;
+};
+export const moments: Moment[] = [
+ {id:'sample-1',title:'Gemenskapsträff',so:'Kulankii Bulshada',date:'Aug 2026',location:'Gothenburg',category:'Meetups',image:photos.friends},
+ {id:'sample-2',title:'En eftermiddag tillsammans',so:'Galab Wadajir Ah',date:'Jul 2026',location:'Gothenburg',category:'Meetups',image:photos.picnic},
+ {id:'sample-3',title:'Vänner & samtal',so:'Saaxiibbo iyo Wadahadal',date:'Jun 2026',location:'Online & local',category:'Community',image:photos.girls},
+ {id:'sample-4',title:'Spel och gemenskap',so:'Ciyaaro iyo Farxad',date:'May 2026',location:'Online',category:'Activities',image:photos.games},
+ {id:'sample-5',title:'Fika och gemenskap',so:'Qaxwo iyo Isbarasho',date:'Apr 2026',location:'Gothenburg',category:'RAJO Sisters',image:photos.coffee},
+ {id:'sample-6',title:'Vi lär tillsammans',so:'Waxbarasho Wadajir Ah',date:'Mar 2026',location:'Online',category:'Workshops',image:photos.learn}
 ];
-export type Idea = {id:number;title:string;description:string;category:string;votes:number;status:'pending'|'approved';created:string};
+export type Idea = {id:string;title:string;description:string;category:string;votes:number;status:'pending'|'approved'|'rejected';created:string};
 export const starterIdeas: Idea[] = [
- {id:1,title:'Somalisk matlagningsworkshop',description:'Lär oss recept och laga mat tillsammans.',category:'Workshop',votes:24,status:'approved',created:'2026-10-10'},
- {id:2,title:'En dagsutflykt tillsammans',description:'Upptäck en ny plats och skapa fina minnen.',category:'Outdoors',votes:19,status:'approved',created:'2026-10-12'},
- {id:3,title:'Digital bokcirkel',description:'Läs tillsammans och dela tankar.',category:'Online',votes:16,status:'approved',created:'2026-10-14'}
+ {id:'starter-1',title:'Somalisk matlagningsworkshop',description:'Lär oss recept och laga mat tillsammans.',category:'Workshop',votes:24,status:'approved',created:'2026-10-10'},
+ {id:'starter-2',title:'En dagsutflykt tillsammans',description:'Upptäck en ny plats och skapa fina minnen.',category:'Outdoors',votes:19,status:'approved',created:'2026-10-12'},
+ {id:'starter-3',title:'Digital bokcirkel',description:'Läs tillsammans och dela tankar.',category:'Online',votes:16,status:'approved',created:'2026-10-14'}
 ];

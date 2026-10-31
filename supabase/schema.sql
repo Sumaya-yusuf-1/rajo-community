@@ -74,6 +74,7 @@ create table if not exists public.moments (
  photo_consent_confirmed boolean not null default false,
  created_at timestamptz not null default now()
 );
+alter table public.moments add column if not exists category text not null default 'Community';
 create table if not exists public.membership_requests (
  id uuid primary key default gen_random_uuid(),
  user_id uuid not null unique references auth.users(id) on delete cascade,
@@ -122,3 +123,29 @@ create trigger no_member_approval before update on public.membership_requests fo
 create policy "membership admin delete" on public.membership_requests for delete to authenticated using(public.is_rajo_admin());
 -- Grant yourself admin via SQL editor AFTER registering with your email:
 -- update public.profiles set role='admin' where id=(select id from auth.users where email='YOUR_EMAIL@example.com');
+
+-- Storage: the image uploader uses this public bucket and only admins may write to it.
+insert into storage.buckets (id, name, public)
+values ('rajo-images', 'rajo-images', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "rajo images public read" on storage.objects;
+create policy "rajo images public read"
+on storage.objects for select
+using (bucket_id = 'rajo-images');
+
+drop policy if exists "rajo images admin upload" on storage.objects;
+create policy "rajo images admin upload"
+on storage.objects for insert to authenticated
+with check (bucket_id = 'rajo-images' and public.is_rajo_admin());
+
+drop policy if exists "rajo images admin update" on storage.objects;
+create policy "rajo images admin update"
+on storage.objects for update to authenticated
+using (bucket_id = 'rajo-images' and public.is_rajo_admin())
+with check (bucket_id = 'rajo-images' and public.is_rajo_admin());
+
+drop policy if exists "rajo images admin delete" on storage.objects;
+create policy "rajo images admin delete"
+on storage.objects for delete to authenticated
+using (bucket_id = 'rajo-images' and public.is_rajo_admin());
