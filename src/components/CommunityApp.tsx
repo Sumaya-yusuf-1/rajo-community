@@ -45,6 +45,8 @@ type DatabaseMoment = {
   id: string;
   title_sv: string;
   title_so: string;
+  description_sv: string | null;
+  description_so: string | null;
   image_url: string | null;
   event_date: string;
   location: string;
@@ -232,16 +234,18 @@ export function CommunityApp({
         if (!active) return;
 
         setDatabaseMoments(
-          (result.data ?? []).map((moment) => ({
-            id: moment.id,
-            title: moment.title_sv,
-            so: moment.title_so,
-            date: moment.event_date,
-            location: moment.location,
-            category: moment.category,
-            image: moment.image_url ?? "",
-          })),
-        );
+  (result.data ?? []).map((moment) => ({
+    id: moment.id,
+    title: moment.title_sv,
+    so: moment.title_so,
+    description_sv: moment.description_sv ?? "",
+    description_so: moment.description_so ?? "",
+    date: moment.event_date,
+    location: moment.location,
+    category: moment.category,
+    image: moment.image_url ?? "",
+  })),
+);
       } catch (error) {
         console.error("Unable to load moments:", error);
 

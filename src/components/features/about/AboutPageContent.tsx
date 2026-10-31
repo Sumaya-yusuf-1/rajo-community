@@ -97,22 +97,22 @@ export function AboutPageContent({ t, navigate }: Props) {
       />
       <div>
         <span className='eyebrow'>
-          {t("A SPACE FOR SISTERS", "MEEL GABDHAHA U GAAR AH")}
+          {t("A SPACE FOR COMMUNITY", "MEEL BULSHADA U GAAR AH")}
         </span>
         <h2>
-          RAJO Sisters <Heart size={30} fill='currentColor' />
+          RAJO Community <Heart size={30} fill='currentColor' />
         </h2>
         <p>
           {t(
-            "A dedicated part of RAJO for women aged 18+ to build friendships, support each other and grow together.",
-            "Qayb RAJO ka mid ah oo loogu talagalay haweenka 18+ jirka ah si ay saaxiibtinimo u dhistaan, isu taageeraan oo wadajir u koraan.",
+            "A welcoming part of RAJO where everyone can build friendships, support each other and grow together.",
+            "Qayb soo dhaweyn leh oo RAJO ka mid ah halka qof walba uu saaxiibtinimo ku dhisan karo, isu taageeri karo oo wadajir ugu kori karo.",
           )}
         </p>
         <button
           className='btn-primary'
           onClick={() => navigate("join")}
         >
-          {t("Join our sisterhood", "Ku biir gabdhaha")}{" "}
+          {t("Join our community", "Ku biir bulshada")}{" "}
           <ArrowRight size={17} />
         </button>
       </div>

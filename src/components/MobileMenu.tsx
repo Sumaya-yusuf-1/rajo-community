@@ -344,16 +344,6 @@ export default function MobileMenu({
 
             {member && (
               <>
-                <Link
-                  href={`/${locale}/member`}
-                  onClick={onClose}
-                  className="flex items-center gap-4 rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-700 hover:bg-blue-50 dark:text-slate-200 dark:hover:bg-white/10"
-                >
-                  <UserRound size={20} />
-
-                  {so ? "Boggeyga" : "Min profil"}
-                </Link>
-
                 {member.role === "admin" && (
                   <Link
                     href={`/${locale}/admin`}
