@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { AboutPageContent } from "@/components/features/about/AboutPageContent";
@@ -53,6 +53,14 @@ type DatabaseMoment = {
   category: string;
 };
 
+type Moment = (typeof moments)[number];
+
+type IdeasResponse = {
+  data?: DatabaseIdea[];
+  votedIds?: string[];
+  error?: string;
+};
+
 const initialNav: Page[] = [
   "home",
   "moments",
@@ -74,13 +82,30 @@ const labels: Record<Page, [string, string]> = {
   privacy: ["Integritetspolicy", "Siyaasadda Asturnaanta"],
 };
 
-function readData<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
+function mapIdeas(items: DatabaseIdea[]): Idea[] {
+  return items.map((idea) => ({
+    id: idea.id,
+    title: idea.title,
+    description: idea.description,
+    category: idea.category,
+    votes: idea.vote_count,
+    status: idea.status,
+    created: idea.created_at,
+  }));
+}
+
+function mapMoments(items: DatabaseMoment[]): Moment[] {
+  return items.map((moment) => ({
+    id: moment.id,
+    title: moment.title_sv,
+    so: moment.title_so,
+    description_sv: moment.description_sv ?? "",
+    description_so: moment.description_so ?? "",
+    date: moment.event_date,
+    location: moment.location ?? "",
+    category: moment.category ?? "Community",
+    image: moment.image_url ?? "",
+  }));
 }
 
 export function CommunityApp({
@@ -93,31 +118,40 @@ export function CommunityApp({
   const router = useRouter();
   const page = initialPage;
 
+  // THEME AND NAVIGATION
   const [theme, setTheme] = useState<Theme>("dark");
   const [menu, setMenu] = useState(false);
 
+  // AUTHENTICATION
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+
+  // IDEAS AND VOTING
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [myVotes, setMyVotes] = useState<string[]>([]);
+  const [votingIds, setVotingIds] = useState<string[]>([]);
 
+  // MOMENTS
   const [selectedFilter, setSelectedFilter] = useState("All");
-
-  const [databaseMoments, setDatabaseMoments] = useState<
-    (typeof moments)[number][]
-  >([]);
-
+  const [databaseMoments, setDatabaseMoments] = useState<Moment[]>([]);
   const [momentsLoading, setMomentsLoading] = useState(true);
+
+  // NOTICES
   const [notice, setNotice] = useState("");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Prevent duplicate votes while a request is running
+  const pendingVotesRef = useRef<Set<string>>(new Set());
+
+  // Prevent old vote requests from updating a different user's UI
+  const authVersionRef = useRef(0);
 
   // TRANSLATION
   const t = (sv: string, so: string) =>
     locale === "so" ? so : (swedish[sv] ?? sv);
 
-  // THEME AND SAVED VOTES
+  // THEME
   useEffect(() => {
     document.documentElement.lang = locale;
-
-    setMyVotes(readData<string[]>("rajo-votes", []));
 
     const savedTheme = localStorage.getItem("rajo-theme");
 
@@ -136,86 +170,143 @@ export function CommunityApp({
   }, [locale]);
 
   // AUTHENTICATION
-  useEffect(() => {
-    const supabase = browserDb();
-    let active = true;
+  // AUTHENTICATION
+useEffect(() => {
+  const supabase = browserDb();
+  let active = true;
 
-    async function checkUser() {
+  async function checkUser() {
+    try {
       const {
         data: { user },
+        error,
       } = await supabase.auth.getUser();
 
+      if (!active) return;
+
+      // No session after logout is normal
+      if (error) {
+        if (
+          error.name !== "AuthSessionMissingError" &&
+          !error.message?.toLowerCase().includes("auth session missing")
+        ) {
+          console.warn("RAJO Auth:", error.message);
+        }
+
+        setIsLoggedIn(false);
+        return;
+      }
+
+      setIsLoggedIn(Boolean(user));
+    } catch (error) {
+      if (!active) return;
+
+      const message =
+        error instanceof Error ? error.message : "";
+
+      // Ignore expected missing-session errors
+      if (
+        !message.toLowerCase().includes("auth session missing")
+      ) {
+        console.warn("RAJO Auth:", error);
+      }
+
+      setIsLoggedIn(false);
+    } finally {
       if (active) {
-        setIsLoggedIn(Boolean(user));
+        setAuthReady(true);
       }
     }
+  }
 
-    void checkUser();
+  void checkUser();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) {
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange(
+    (event, session) => {
+      if (!active) return;
+
+      if (
+        event === "SIGNED_IN" ||
+        event === "SIGNED_OUT" ||
+        event === "USER_UPDATED"
+      ) {
+        authVersionRef.current += 1;
+
         setIsLoggedIn(Boolean(session?.user));
       }
-    });
 
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+      if (event === "SIGNED_OUT") {
+        // Clear the previous user's voting information
+        setMyVotes([]);
+      }
 
-  // FETCH IDEAS
+      setAuthReady(true);
+    }
+  );
+
+  return () => {
+    active = false;
+    subscription.unsubscribe();
+  };
+}, []);
+
+  // LOAD IDEAS AND VOTES FROM SUPABASE
+  const refreshIdeas = useCallback(
+    async (signal?: AbortSignal) => {
+      const response = await fetch("/api/ideas", {
+        method: "GET",
+        cache: "no-store",
+        credentials: "same-origin",
+        signal,
+      });
+
+      const result = (await response.json()) as IdeasResponse;
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || `Ideas API HTTP ${response.status}`,
+        );
+      }
+
+      if (signal?.aborted) return;
+
+      setIdeas(mapIdeas(result.data ?? []));
+      setMyVotes(result.votedIds ?? []);
+    },
+    [],
+  );
+
+  // FETCH IDEAS WHEN AUTH CHANGES
   useEffect(() => {
-    let active = true;
+    if (!authReady) return;
+
+    const controller = new AbortController();
 
     async function fetchIdeas() {
       try {
-        const response = await fetch("/api/ideas", {
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          throw new Error("Unable to load ideas");
-        }
-
-        const result = (await response.json()) as {
-          data?: DatabaseIdea[];
-          votedIds?: string[];
-        };
-
-        if (!active) return;
-
-        setMyVotes(result.votedIds ?? []);
-        setIdeas(
-          (result.data ?? []).map((idea) => ({
-            id: idea.id,
-            title: idea.title,
-            description: idea.description,
-            category: idea.category,
-            votes: idea.vote_count,
-            status: idea.status,
-            created: idea.created_at,
-          })),
-        );
+        await refreshIdeas(controller.signal);
       } catch (error) {
+        if (controller.signal.aborted) return;
+
         console.error("Unable to load ideas:", error);
 
-        if (active) setIdeas([]);
+        setIdeas([]);
+        setMyVotes([]);
       }
     }
 
     void fetchIdeas();
 
     return () => {
-      active = false;
+      controller.abort();
     };
-  }, []);
+  }, [authReady, isLoggedIn, refreshIdeas]);
 
   // FETCH MOMENTS
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
 
     async function fetchMoments() {
       setMomentsLoading(true);
@@ -223,44 +314,40 @@ export function CommunityApp({
       try {
         const response = await fetch("/api/moments", {
           cache: "no-store",
+          signal: controller.signal,
         });
 
         if (!response.ok) {
-          throw new Error("Unable to load moments");
+          const errorText = await response.text();
+
+          throw new Error(
+            `Moments API HTTP ${response.status}: ${errorText.slice(0, 200)}`,
+          );
         }
 
         const result = (await response.json()) as {
           data?: DatabaseMoment[];
         };
 
-        if (!active) return;
+        if (controller.signal.aborted) return;
 
-        setDatabaseMoments(
-  (result.data ?? []).map((moment) => ({
-    id: moment.id,
-    title: moment.title_sv,
-    so: moment.title_so,
-    description_sv: moment.description_sv ?? "",
-    description_so: moment.description_so ?? "",
-    date: moment.event_date,
-    location: moment.location,
-    category: moment.category,
-    image: moment.image_url ?? "",
-  })),
-);
+        setDatabaseMoments(mapMoments(result.data ?? []));
       } catch (error) {
-        console.error("Unable to load moments:", error);
+        if (controller.signal.aborted) return;
 
-        if (active) setDatabaseMoments([]);
+        console.error("Unable to load moments:", error);
+        setDatabaseMoments([]);
       } finally {
-        if (active) setMomentsLoading(false);
+        if (!controller.signal.aborted) {
+          setMomentsLoading(false);
+        }
       }
     }
 
     void fetchMoments();
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, []);
 
@@ -353,6 +440,7 @@ export function CommunityApp({
     try {
       const response = await fetch("/api/ideas", {
         method: "POST",
+        credentials: "same-origin",
         headers: {
           "Content-Type": "application/json",
         },
@@ -366,6 +454,15 @@ export function CommunityApp({
       const result = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401) {
+          router.push(
+            `/${locale}/login?next=${encodeURIComponent(
+              `/${locale}/ideas`,
+            )}`,
+          );
+          return;
+        }
+
         throw new Error(
           result.error || "Unable to submit idea",
         );
@@ -378,66 +475,111 @@ export function CommunityApp({
         ),
       );
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "";
+      console.error("Unable to submit idea:", error);
 
       setNotice(
-        message === "Login required"
-          ? t(
-              "Logga in innan du skickar en idé.",
-              "Fadlan soo gal ka hor intaadan fikrad gudbin.",
-            )
-          : t(
-              "Det gick inte att skicka idén.",
-              "Fikradda lama gudbin karin.",
-            ),
+        t(
+          "Det gick inte att skicka idén.",
+          "Fikradda lama gudbin karin.",
+        ),
       );
     }
   }
 
-  // VOTE
+  // VOTE, UNDO AND VOTE AGAIN
   async function vote(id: string) {
-    const undo = myVotes.includes(id);
+    // Prevent double-clicks before React state updates
+    if (pendingVotesRef.current.has(id)) return;
+
+    pendingVotesRef.current.add(id);
+
+    setVotingIds((current) =>
+      current.includes(id) ? current : [...current, id],
+    );
+
+    setNotice("");
+
+    const version = authVersionRef.current;
 
     try {
-      const response = await fetch(
-        `/api/ideas/${encodeURIComponent(id)}/vote`,
-        { method: undo ? "DELETE" : "POST" },
-      );
+      const supabase = browserDb();
 
-      if (!response.ok) {
-        throw new Error("Unable to vote");
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      // NOT LOGGED IN -> LOGIN PAGE
+      if (authError || !user) {
+        router.push(
+          `/${locale}/login?next=${encodeURIComponent(
+            `/${locale}/ideas`,
+          )}`,
+        );
+        return;
       }
 
-      const updatedVotes = undo
-        ? myVotes.filter((voteId) => voteId !== id)
-        : [...myVotes, id];
+      const alreadyVoted = myVotes.includes(id);
 
-      setMyVotes(updatedVotes);
-
-      localStorage.setItem(
-        "rajo-votes",
-        JSON.stringify(updatedVotes),
+      // POST = add vote
+      // DELETE = remove vote
+      const response = await fetch(
+        `/api/ideas/${encodeURIComponent(id)}/vote`,
+        {
+          method: alreadyVoted ? "DELETE" : "POST",
+          credentials: "same-origin",
+        },
       );
 
-      setIdeas((current) =>
-        current.map((idea) =>
-          idea.id === id
-            ? {
-                ...idea,
-                votes: Math.max(0, idea.votes + (undo ? -1 : 1)),
-              }
-            : idea,
-        ),
-      );
+      if (response.status === 401) {
+        router.push(
+          `/${locale}/login?next=${encodeURIComponent(
+            `/${locale}/ideas`,
+          )}`,
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+
+        throw new Error(
+          errorData?.error ||
+            `Vote API HTTP ${response.status}`,
+        );
+      }
+
+      // Another user may have signed in/out during the request
+      if (version !== authVersionRef.current) return;
+
+      // Refresh actual vote counts and current user's votes
+      await refreshIdeas();
     } catch (error) {
-      console.error("Unable to vote:", error);
+      console.error("RAJO voting error:", error);
 
-      setNotice(
-        t(
-          "Det gick inte att rösta. Försök igen.",
-          "Codeynta lama samayn karin. Mar kale isku day.",
-        ),
+      if (version === authVersionRef.current) {
+        setNotice(
+          t(
+            "Det gick inte att uppdatera din röst. Försök igen.",
+            "Codkaaga lama cusboonaysiin karin. Mar kale isku day.",
+          ),
+        );
+
+        // Attempt to restore correct state after a failed request
+        try {
+          await refreshIdeas();
+        } catch (refreshError) {
+          console.error(
+            "Unable to refresh voting information:",
+            refreshError,
+          );
+        }
+      }
+    } finally {
+      pendingVotesRef.current.delete(id);
+
+      setVotingIds((current) =>
+        current.filter((voteId) => voteId !== id),
       );
     }
   }
@@ -448,91 +590,100 @@ export function CommunityApp({
 
     setNotice("");
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-    if (authError || !user) {
-      router.push(`/${locale}/login`);
-      return;
-    }
+      if (authError || !user) {
+        router.push(`/${locale}/login`);
+        return;
+      }
 
-    const name = String(form.get("name") || "").trim();
-    const interest = String(
-      form.get("interest") || "",
-    ).trim();
-    const phone = String(form.get("phone") || "").trim();
+      const name = String(form.get("name") || "").trim();
+      const interest = String(form.get("interest") || "").trim();
+      const phone = String(form.get("phone") || "").trim();
 
-    const adult = form.get("adult") === "on";
-    const agreeTerms = form.get("agreeTerms") === "on";
-    const contactConsent =
-      form.get("contactConsent") === "on";
-    const whatsappConsent =
-      form.get("whatsappConsent") === "on";
+      const adult = form.get("adult") === "on";
+      const agreeTerms = form.get("agreeTerms") === "on";
+      const contactConsent =
+        form.get("contactConsent") === "on";
+      const whatsappConsent =
+        form.get("whatsappConsent") === "on";
 
-    if (!adult || !agreeTerms || !contactConsent) {
+      if (!adult || !agreeTerms || !contactConsent) {
+        setNotice(
+          t(
+            "Du måste vara minst 18 år och godkänna villkoren.",
+            "Waa inaad ugu yaraan 18 jir tahay oo aad aqbashaa shuruudaha.",
+          ),
+        );
+        return;
+      }
+
+      if (name.length < 2) {
+        setNotice(
+          t(
+            "Ange ditt fullständiga namn.",
+            "Geli magacaaga oo dhan.",
+          ),
+        );
+        return;
+      }
+
+      if (whatsappConsent && !phone) {
+        setNotice(
+          t(
+            "Ange ditt telefonnummer för WhatsApp-kontakt.",
+            "Geli lambarkaaga si lagugula soo xiriiro WhatsApp.",
+          ),
+        );
+        return;
+      }
+
+      const { error } = await supabase
+        .from("membership_requests")
+        .insert({
+          user_id: user.id,
+          full_name: name,
+          interest,
+          phone: phone || null,
+          whatsapp_consent: whatsappConsent,
+          adult_confirmed: adult,
+          terms_accepted_at: new Date().toISOString(),
+          status: "pending",
+        });
+
+      if (error) {
+        setNotice(
+          locale === "sv"
+            ? `Kunde inte skicka ansökan: ${error.message}`
+            : `Codsiga lama dirin: ${error.message}`,
+        );
+        return;
+      }
+
       setNotice(
         t(
-          "Du måste vara minst 18 år och godkänna villkoren.",
-          "Waa inaad ugu yaraan 18 jir tahay oo aad aqbashaa shuruudaha.",
+          "Din medlemsansökan har skickats! RAJO kommer att granska den.",
+          "Codsigaaga xubinnimada waa la diray! RAJO ayaa dib u eegi doonta.",
         ),
       );
-      return;
-    }
+    } catch (error) {
+      console.error("RAJO Membership:", error);
 
-    if (name.length < 2) {
       setNotice(
         t(
-          "Ange ditt fullständiga namn.",
-          "Geli magacaaga oo dhan.",
+          "Det gick inte att skicka medlemsansökan. Försök igen.",
+          "Codsiga xubinnimada lama dirin. Mar kale isku day.",
         ),
       );
-      return;
     }
-
-    if (whatsappConsent && !phone) {
-      setNotice(
-        t(
-          "Ange ditt telefonnummer för WhatsApp-kontakt.",
-          "Geli lambarkaaga si lagugula soo xiriiro WhatsApp.",
-        ),
-      );
-      return;
-    }
-
-    const { error } = await supabase
-      .from("membership_requests")
-      .insert({
-        user_id: user.id,
-        full_name: name,
-        interest,
-        phone: phone || null,
-        whatsapp_consent: whatsappConsent,
-        adult_confirmed: adult,
-        terms_accepted_at: new Date().toISOString(),
-        status: "pending",
-      });
-
-    if (error) {
-      setNotice(
-        locale === "sv"
-          ? `Kunde inte skicka ansökan: ${error.message}`
-          : `Codsiga lama dirin: ${error.message}`,
-      );
-      return;
-    }
-
-    setNotice(
-      t(
-        "Din medlemsansökan har skickats! RAJO kommer att granska den.",
-        "Codsigaaga xubinnimada waa la diray! RAJO ayaa dib u eegi doonta.",
-      ),
-    );
   }
 
   // MOMENT CARD
-  const renderMomentCard = (item: (typeof moments)[number]) => (
+  const renderMomentCard = (item: Moment) => (
     <MomentCard
       key={item.id}
       item={item}
@@ -606,6 +757,7 @@ export function CommunityApp({
             notice={notice}
             vote={vote}
             addIdea={addIdea}
+            votingIds={votingIds}
           />
         )}
 

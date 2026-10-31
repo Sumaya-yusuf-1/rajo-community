@@ -10,9 +10,18 @@ type Props = {
   notice: string;
   vote: (id: string) => void | Promise<void>;
   addIdea: (form: FormData) => void | Promise<void>;
+  votingIds?: string[];
 };
 
-export function IdeasPageContent({ t, ideas, myVotes, notice, vote, addIdea }: Props) {
+export function IdeasPageContent({
+  t,
+  ideas,
+  myVotes,
+  notice,
+  vote,
+  addIdea,
+  votingIds = [],
+}: Props) {
   return (
 <>
     <PageHero
@@ -47,14 +56,15 @@ export function IdeasPageContent({ t, ideas, myVotes, notice, vote, addIdea }: P
             .sort((a, b) => b.votes - a.votes)
             .map((i) => (
               <IdeaCard
-                key={i.id}
-                idea={i}
-                voted={myVotes.includes(i.id)}
-                votedLabel={t("Voted", "Waad codaysay")}
-                undoVoteLabel={t("Undo vote", "Ka noqo codka")}
-                voteLabel={t("Vote for this idea", "U codee fikraddan")}
-                onVote={() => vote(i.id)}
-              />
+  key={i.id}
+  idea={i}
+  voted={myVotes.includes(i.id)}
+  votedLabel={t("Röstat", "Waad codaysay")}
+  undoVoteLabel={t("Ångra röst", "Ka noqo codka")}
+  voteLabel={t("Rösta på idén", "U codee fikraddan")}
+  voting={votingIds.includes(i.id)}
+  onVote={() => vote(i.id)}
+/>
             ))}
         </div>
       </div>
