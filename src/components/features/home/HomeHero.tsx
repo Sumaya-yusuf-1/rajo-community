@@ -37,7 +37,16 @@ export function HomeHero({
             <span className="status-dot" />
             {welcomeLabel}
           </span>
-          <h1>{title}</h1>
+         <h1 className="rajo-hero-title">
+  {title.includes("växa i.") ? (
+    <>
+      {title.replace("växa i.", "")}
+      <span className="whitespace-nowrap">växa i.</span>
+    </>
+  ) : (
+    title
+  )}
+</h1>
           <p>{description}</p>
           <div className="hero-ctas">
             <button className="btn-primary" onClick={onPrimaryAction}>
