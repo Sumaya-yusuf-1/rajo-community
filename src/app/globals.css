@@ -2213,3 +2213,85 @@ body {
     transform: none !important;
   }
 }
+/* RAJO - RESPONSIVE FOUNDATION */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  width: 100%;
+  max-width: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+main,
+section,
+header,
+footer {
+  min-width: 0;
+}
+
+img,
+video {
+  max-width: 100%;
+}
+
+.container {
+  width: min(100% - 32px, 1200px);
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+@media (max-width: 767px) {
+  .header-inner {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 12px;
+    gap: 8px;
+  }
+
+  .site-header .brand {
+    min-width: 0;
+    flex-shrink: 0;
+  }
+
+  .header-actions {
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .rajo-desktop-nav,
+  .rajo-desktop-profile,
+  .rajo-desktop-action {
+    display: none;
+  }
+
+  .rajo-mobile-trigger {
+    display: flex;
+    flex-shrink: 0;
+  }
+
+  .section {
+    padding-block: 48px;
+  }
+
+  .idea-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .idea-card,
+  .form-panel {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
